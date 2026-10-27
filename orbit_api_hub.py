@@ -115,15 +115,18 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path in {"/", "/api/orbit/status"}:
                 self.send_json({"ok": True, "service": "Orbit API Hub", "version": VERSION,
                     "api_keys_required": False, "market_base": MARKET_BASE,
-                    "providers": ["Open-Meteo", "OpenStreetMap Nominatim", "Wikipedia",
+                    "providers": ["DuckDuckGo via optional DDGS client", "GDELT News", "YouTube via optional yt-dlp",
+                                  "arXiv", "Open-Meteo", "OpenStreetMap Nominatim", "Wikipedia",
                                   "Wikimedia Commons", "REST Countries", "Frankfurter",
-                                  "Orbit Market local RSS/price adapter"],
-                    "routes": ["/api/orbit/status", "/api/search/news?q=...", "/api/search/places?q=...",
+                                  "Local Ollama (optional)", "Orbit Market local adapter"],
+                    "routes": ["/api/orbit/status", "/api/orbit/catalog",
+                        "/api/search/web?q=...", "/api/search/images?q=...", "/api/search/suggest?q=...",
+                        "/api/search/news?q=...", "/api/search/videos?q=...", "/api/search/research?q=...",
+                        "/api/ai/answer (POST JSON)", "/api/search/places?q=...",
                         "/api/weather?lat=18.5204&lon=73.8567", "/api/currency?from=USD&to=INR&amount=1",
                         "/api/knowledge?q=...", "/api/images/commons?q=...", "/api/countries?q=...",
                         "/api/market/quote?symbol=RELIANCE&exchange=NSE",
-                        "/api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day",
-                        "/api/search/videos (not available without a suitable provider)"]})
+                        "/api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day"]})
             elif parsed.path == "/api/search/web":
                 self.send_json({"ok": False, "provider": "Orbit Search local crawler",
                     "error": "Use Orbit Search's built-in Web tab for crawler results.",
