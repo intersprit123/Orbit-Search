@@ -257,13 +257,17 @@ class Handler(BaseHTTPRequestHandler):
         exchange = args.get("exchange",["NSE"])[0]
         try:
             limit = int(args.get("limit",["10"])[0])
-            if p.path == "/api/market/status":
+            if p.path in {"/", "/api/market/status"}:
                 with connect(self.db_path) as db:
                     data = {"ok":True,"service":"Orbit Market API","version":"0.1",
                             "stocks":db.execute("SELECT COUNT(*) FROM stocks").fetchone()[0],
                             "stored_price_rows":db.execute("SELECT COUNT(*) FROM prices").fetchone()[0],
                             "news_items":db.execute("SELECT COUNT(*) FROM news").fetchone()[0],
-                            "price_provider":"unofficial yfinance prototype; licensed feed needed for redistribution"}
+                            "price_provider":"unofficial yfinance prototype; licensed feed needed for redistribution",
+                            "endpoints":["/api/market/status","/api/market/search?q=bank",
+                                         "/api/market/quote?symbol=RELIANCE&exchange=NSE",
+                                         "/api/market/history?symbol=TCS&period=1y",
+                                         "/api/market/news?q=markets"]}
                 self.send_json(data)
             elif p.path == "/api/market/search":
                 self.send_json(stock_search(self.db_path,q,limit))
