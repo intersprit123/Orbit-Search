@@ -23,6 +23,34 @@ Then open `http://127.0.0.1:8090/api/market/status`.
 **Market-data note:** The current price adapter uses unofficial `yfinance` data for prototype/testing only. Quotes may be delayed or incomplete. Use a properly licensed NSE/BSE feed before treating prices as live or redistributing them. The news collector stores headlines, summaries and links from RSS sources and remains subject to publisher terms.
 
 
+## Free provider integrations
+
+Install the optional no-key adapters into the same Python environment:
+
+```bash
+python3 -m pip install -r requirements-free.txt
+```
+
+The hub adds these routes:
+- `GET /api/search/web?q=...` — web search through the optional DDGS community client.
+- `GET /api/search/images?q=...` — image search; verify each original image's licence before reuse.
+- `GET /api/search/suggest?q=...` — suggestions, with Wikipedia OpenSearch fallback if DDGS is absent.
+- `GET /api/search/news?q=...` — GDELT news search.
+- `GET /api/search/videos?q=...` — YouTube search metadata via optional yt-dlp; it does not download video files.
+- `GET /api/search/research?q=...` — arXiv paper metadata.
+- `POST /api/ai/answer` — grounded answer from supplied result snippets; uses local Ollama if running, otherwise returns a clearly labelled source digest.
+- `GET /api/orbit/catalog` — reports enabled adapters, buildable UI features, and providers that still need verification or credentials.
+
+Example AI request:
+
+```bash
+curl -X POST http://127.0.0.1:18092/api/ai/answer \\
+  -H 'Content-Type: application/json' \\
+  -d '{"question":"What do these sources say?","sources":[{"title":"Example","url":"https://example.com","snippet":"Example source text","source":"web"}]}'
+```
+
+Existing no-key endpoints remain available for weather, currency reference rates, Wikipedia, Wikimedia Commons, country data, place lookup, and the local Orbit Market adapter. Free does not mean unlimited: respect rate limits, attribution, licensing, and provider terms. Some search adapters depend on upstream websites and may temporarily fail or change their behaviour. Do not expose the unauthenticated local prototype to the public internet.
+
 ## Start the API Hub
 
 Start the market service on the port that works on your machine (example: 8092):
