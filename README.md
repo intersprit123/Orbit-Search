@@ -38,6 +38,7 @@ The hub adds these routes:
 - `GET /api/search/news?q=...` — GDELT news search.
 - `GET /api/search/videos?q=...` — YouTube search metadata via optional yt-dlp; it does not download video files.
 - `GET /api/search/research?q=...` — arXiv paper metadata.
+- `GET /api/search/books?q=...` — public Google Books metadata (quota applies).
 - `POST /api/ai/answer` — grounded answer from supplied result snippets; uses local Ollama if running, otherwise returns a clearly labelled source digest.
 - `GET /api/orbit/catalog` — reports enabled adapters, buildable UI features, and providers that still need verification or credentials.
 
