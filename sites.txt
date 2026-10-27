@@ -1,0 +1,7 @@
+# Starting URLs/domains for your own index.
+# Replace these examples with public sites you have permission to crawl.
+# Crawling honours robots.txt and only follows links on the exact same host.
+# This is a small starter file, not a top-5000-domain list.
+https://www.python.org/
+https://www.rfc-editor.org/
+https://www.iana.org/

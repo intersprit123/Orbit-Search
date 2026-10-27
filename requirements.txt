@@ -1,0 +1,3 @@
+# Core crawler/search API uses Python standard library only.
+# Optional advanced features: see requirements-advanced.txt
+# Python 3.10+ and SQLite FTS5 required.
