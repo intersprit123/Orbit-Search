@@ -291,12 +291,13 @@ class PublicCrawler:
                 continue
             payload, charset, _ = fetched
             try:
-            try:
-                decoded = payload.decode(charset, "replace")
-            except LookupError:
-                # Fall back if the sitemap specifies an invalid charset.
-                decoded = payload.decode("utf-8", "replace")
-            root = ElementTree.fromstring(decoded)
+                # Some servers advertise invalid charset names (for example,
+                # "urtf-8"). Fall back to UTF-8 instead of aborting the crawl.
+                try:
+                    decoded = payload.decode(charset or "utf-8", "replace")
+                except (LookupError, TypeError):
+                    decoded = payload.decode("utf-8", "replace")
+                root = ElementTree.fromstring(decoded)
             except ElementTree.ParseError:
                 continue
             for elem in root.iter():
