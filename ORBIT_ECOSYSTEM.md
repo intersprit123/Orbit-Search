@@ -1,77 +1,63 @@
-# Orbit Ecosystem and API Hub
+# Orbit Ecosystem — no-key setup
 
-Orbit API Hub is a modular local REST gateway for Orbit Search. It adds optional external providers and free/public data services without replacing the existing crawler or Orbit Market API.
+Orbit Search's API Hub is designed to work without API keys, paid subscriptions, free trials, or third-party developer accounts. The hub uses public data services and the local Orbit Market adapter.
 
-## Start it
+## Start the services
 
-Run the Market API in one terminal using the port that works on your machine. For example:
+Terminal 1: start Orbit Market on the port available on your machine (example: 8092):
 
 ```bash
 python3 orbit_market.py serve --port 8092
 ```
 
-In a second terminal:
+Terminal 2:
 
 ```bash
 python3 orbit_api_hub.py --port 18092
 ```
 
-Open `http://127.0.0.1:18092/api/orbit/status`. Port 18092 is the default for the hub to avoid common development ports. If your Market API uses a different port, set `ORBIT_MARKET_URL` before starting the hub, for example:
+If Orbit Market uses another port, set it before starting the hub:
 
 ```bash
 export ORBIT_MARKET_URL=http://127.0.0.1:8091
 python3 orbit_api_hub.py --port 18092
 ```
 
-No additional Python packages are required for the hub itself; it uses the Python standard library. The separate Market API's optional price adapter still uses `requirements-market.txt`.
+Open `http://127.0.0.1:18092/api/orbit/status` to check the hub. The hub uses only Python's standard library. No API keys or additional packages are required for the hub itself.
 
-## Optional API keys
+## No-key endpoints
 
-The free/public endpoints can be tested without keys. Optional provider-backed routes return a clear configuration message if their key is missing.
-
-```bash
-export BRAVE_SEARCH_API_KEY='paste-your-key-here'
-export GNEWS_API_KEY='paste-your-key-here'
-export TWELVE_DATA_API_KEY='paste-your-key-here'
-export YOUTUBE_API_KEY='paste-your-key-here'
-python3 orbit_api_hub.py --port 18092
-```
-
-Set only the keys you actually have. Do not paste keys into source code, commit them to Git, or share screenshots that expose them. These shell exports last only for the current terminal session. For persistent local setup, use a private shell profile or a local ignored environment file.
-
-## Endpoints
-
-| Endpoint | Purpose | Provider / fallback |
+| Endpoint | Purpose | Provider / notes |
 |---|---|---|
-| `GET /api/orbit/status` | Service status and configured providers | Local |
-| `GET /api/search/web?q=...` | Web search | Brave Search API (key required) |
-| `GET /api/search/news?q=...` | News search | GNews (key required); falls back to Orbit Market's local RSS index |
-| `GET /api/search/images?q=...` | Image search | Brave Search API (key required) |
-| `GET /api/search/videos?q=...` | Video search | YouTube Data API if configured, otherwise Brave Search API |
-| `GET /api/search/places?q=...` | Place/address lookup | OpenStreetMap Nominatim |
-| `GET /api/weather?lat=18.5204&lon=73.8567` | Current conditions and 7-day forecast | Open-Meteo |
-| `GET /api/currency?from=USD&to=INR&amount=1` | Reference currency conversion | Frankfurter |
+| `GET /api/orbit/status` | Service status | Local hub |
+| `GET /api/search/news?q=...` | Search collected news headlines | Orbit Market's local RSS index; start Market and run `python3 orbit_market.py collect-news` |
+| `GET /api/search/places?q=...` | Place/address lookup | OpenStreetMap Nominatim; strict rate limits apply |
+| `GET /api/weather?lat=18.5204&lon=73.8567` | Current weather and 7-day forecast | Open-Meteo |
+| `GET /api/currency?from=USD&to=INR&amount=1` | Reference currency conversion | Frankfurter; not a bank quote |
 | `GET /api/knowledge?q=...` | Encyclopedia search | Wikipedia |
-| `GET /api/images/commons?q=...` | Search reusable media candidates | Wikimedia Commons |
+| `GET /api/images/commons?q=...` | Media candidates | Wikimedia Commons; check each file's license |
 | `GET /api/countries?q=india` | Country reference data | REST Countries |
-| `GET /api/market/quote?symbol=RELIANCE&exchange=NSE` | Stock quote | Twelve Data if configured; otherwise local Orbit Market |
-| `GET /api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day` | Price history | Twelve Data if configured; otherwise local Orbit Market |
+| `GET /api/market/quote?symbol=RELIANCE&exchange=NSE` | Stock quote | Local Orbit Market adapter; unofficial and may be delayed |
+| `GET /api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day` | Price history | Local Orbit Market adapter; unofficial and may be delayed |
 
-Use URL encoding for search terms containing spaces or special characters. The status endpoint shows whether optional API keys are configured; it never returns their values.
+## What is intentionally not enabled?
 
-## Provider and usage notes
+- No Brave Search, GNews, Twelve Data, or YouTube API keys.
+- No paid API subscriptions, developer-account setup, or adult-account signup flows.
+- The built-in Orbit Search Web tab uses Orbit's existing local crawler/search API. It is separate from this hub.
+- Video search is unavailable through the hub for now; a suitable no-key public API was not added.
+- The local market adapter may use unofficial data sources. Do not treat it as guaranteed real-time financial data.
 
-- **Brave Search API:** its current pricing page lists prepaid usage and a monthly credit. Web, news, image, and video endpoints require a valid key. See the official [API page](https://brave.com/search/api/) and [documentation](https://api-dashboard.search.brave.com/documentation/).
-- **GNews:** the free plan is for development/testing and has request and freshness limits; check the current terms before publishing an app. See [pricing](https://gnews.io/pricing) and [docs](https://docs.gnews.io/).
-- **Twelve Data:** coverage, exchange availability, update frequency, and API credits depend on the selected plan. Check current [docs](https://twelvedata.com/docs) and [pricing](https://twelvedata.com/pricing). Do not assume NSE data is real-time on a free plan.
-- **Orbit Market:** its existing `yfinance` adapter is unofficial and may be delayed or incomplete. Do not describe it as guaranteed live exchange data or redistribute it commercially without the appropriate rights.
-- **OpenStreetMap Nominatim:** follow its usage policy; it is not intended for high-volume autocomplete. For a public app, use a suitable provider or host an appropriate geocoder.
-- **Open-Meteo, Frankfurter, Wikipedia, Wikimedia Commons, and REST Countries:** check their current terms, attribution requirements, and suitability for your use. For Commons, check the license of each individual image before reuse.
-- **YouTube:** API key use is subject to YouTube Data API quota and terms.
-- **Security:** the hub binds to localhost by default and has no authentication or per-user rate limits. Do not expose it to the public internet until authentication, rate limits, input validation, and deployment protections are added.
+## Public-service rules
 
-## UI integration
+“No API key” does not mean unlimited use or unrestricted reuse. Respect provider policies and attribution/licensing requirements:
 
-The existing Orbit Search page now includes tabs for Web API, Orbit News, Images API, Videos, Places, Weather, Currency, Knowledge, Wikimedia Commons, Countries, and Market. These tabs call the API Hub at `http://127.0.0.1:18092`; start the hub before using them. Existing local search, AI, semantic, book, GitHub, and research modes remain in place.
+- **Open-Meteo:** free for non-commercial use under its terms; check current terms and attribution requirements: https://open-meteo.com/en/terms
+- **Nominatim / OpenStreetMap:** public Nominatim has strict usage limits; do not use for autocomplete or bulk requests. Attribution is required: https://operations.osmfoundation.org/policies/nominatim/
+- **Wikimedia APIs:** follow access policy and identify your application: https://www.mediawiki.org/wiki/Wikimedia_APIs/Access_policy
+- **Wikimedia Commons:** individual files have different licenses; check each file before reuse.
+- **Wikipedia:** respect Wikimedia API policy and source attribution.
+- **Frankfurter:** reference exchange rates can lag and are not guaranteed bank/trading rates.
+- **REST Countries:** public community API; use responsibly and expect availability/schema changes.
 
-The hub permits browser requests from localhost origins for this local UI. The Market tab uses the local Orbit Market service when Twelve Data is not configured. This is still an educational prototype: external provider errors, quotas, and missing keys are shown rather than hidden. Market results are not guaranteed live or licensed for redistribution.
+Keep the hub bound to localhost. Do not expose it to the internet without authentication, rate limiting, and a security review.
