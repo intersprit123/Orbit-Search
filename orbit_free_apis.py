@@ -178,6 +178,33 @@ def video_search(query: str, limit: int = 10) -> dict[str, Any]:
             "note": "Search metadata only. Download only media you are authorized to save; no DRM or access-control bypass."}
 
 
+def books_search(query: str, limit: int = 10) -> dict[str, Any]:
+    """Search public Google Books metadata; quota and terms still apply."""
+    if not query:
+        raise ValueError("Missing q query parameter.")
+    data = _json(_params("https://www.googleapis.com/books/v1/volumes", {
+        "q": query, "maxResults": _limit(limit, maximum=20),
+        "printType": "books",
+    }))
+    results = []
+    for row in data.get("items", []) or []:
+        info = row.get("volumeInfo", {})
+        links = info.get("imageLinks", {})
+        results.append({
+            "title": info.get("title") or "Untitled book",
+            "url": info.get("infoLink") or ("https://books.google.com/books?id=" + str(row.get("id", ""))),
+            "snippet": info.get("description", "")[:900],
+            "authors": info.get("authors", []),
+            "published": info.get("publishedDate"),
+            "thumbnail": links.get("thumbnail") or links.get("smallThumbnail"),
+            "source": "Google Books API",
+            "kind": "book",
+        })
+    return {"ok": True, "provider": "Google Books API", "query": query,
+            "count": len(results), "results": results,
+            "note": "Public metadata requests may be quota-limited; book text and cover rights remain with their owners."}
+
+
 def research_search(query: str, limit: int = 10) -> dict[str, Any]:
     if not query:
         raise ValueError("Missing q query parameter.")
@@ -249,6 +276,7 @@ CATALOG = {
         {"name": "GDELT news search", "route": "/api/search/news?q=...", "status": "implemented"},
         {"name": "YouTube video search", "route": "/api/search/videos?q=...", "status": "optional_dependency"},
         {"name": "arXiv scholarly search", "route": "/api/search/research?q=...", "status": "implemented"},
+        {"name": "Google Books metadata search", "route": "/api/search/books?q=...", "status": "public_quota_applies"},
         {"name": "Local-model AI answer", "route": "/api/ai/answer", "status": "implemented_ollama_optional"},
         {"name": "Wikipedia knowledge", "route": "/api/knowledge?q=...", "status": "implemented"},
         {"name": "Wikimedia Commons images", "route": "/api/images/commons?q=...", "status": "implemented"},
@@ -292,6 +320,8 @@ def handle_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, 
             return 200, video_search(q, limit)
         if path == "/api/search/research":
             return 200, research_search(q, limit)
+        if path == "/api/search/books":
+            return 200, books_search(q, limit)
         if path == "/api/ai/answer":
             body = params.get("sources", [""])[0]
             try:
