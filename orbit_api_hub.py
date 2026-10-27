@@ -15,8 +15,10 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-VERSION = "0.2"
-USER_AGENT = "OrbitSearch/0.2 (educational project; https://github.com/intersprit123/Orbit-Search)"
+from orbit_free_apis import ai_answer, handle_api
+
+VERSION = "0.3"
+USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MARKET_BASE = os.getenv("ORBIT_MARKET_URL", "http://127.0.0.1:8092").rstrip(" /")
 
 
@@ -62,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts.scheme == "http" and parts.hostname in {"localhost", "127.0.0.1", "::1"}:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -70,24 +72,61 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:
         print("%s - %s" % (self.address_string(), fmt % args))
 
+    def do_POST(self) -> None:
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path != "/api/ai/answer":
+            self.send_json({"ok": False, "error": "Not found", "status": "/api/orbit/status"}, 404)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0 or length > 2_000_000:
+                self.send_json({"ok": False, "error": "Request body too large."}, 413)
+                return
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(body, dict):
+                self.send_json({"ok": False, "error": "Expected a JSON object."}, 400)
+                return
+            question = str(body.get("question", "")).strip()
+            sources = body.get("sources", [])
+            if not question or len(question) > 1500:
+                self.send_json({"ok": False, "error": "question is required and must be at most 1500 characters."}, 400)
+                return
+            if not isinstance(sources, list) or not all(isinstance(x, dict) for x in sources):
+                self.send_json({"ok": False, "error": "sources must be an array of result objects."}, 400)
+                return
+            self.send_json(ai_answer(question, sources))
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            self.send_json({"ok": False, "error": "Invalid JSON request body."}, 400)
+        except Exception as exc:
+            self.send_json({"ok": False, "error": "AI adapter failed", "detail": type(exc).__name__}, 502)
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlsplit(self.path)
         p = urllib.parse.parse_qs(parsed.query)
         q = p.get("q", [""])[0].strip()
         try:
             limit = max(1, min(int(p.get("limit", ["10"])[0]), 50))
+            # Free provider adapters take precedence over legacy placeholders.
+            handled = handle_api(parsed.path, p)
+            if handled is not None:
+                status, payload = handled
+                self.send_json(payload, status)
+                return
             if parsed.path in {"/", "/api/orbit/status"}:
                 self.send_json({"ok": True, "service": "Orbit API Hub", "version": VERSION,
                     "api_keys_required": False, "market_base": MARKET_BASE,
-                    "providers": ["Open-Meteo", "OpenStreetMap Nominatim", "Wikipedia",
+                    "providers": ["DuckDuckGo via optional DDGS client", "GDELT News", "YouTube via optional yt-dlp",
+                                  "arXiv", "Open-Meteo", "OpenStreetMap Nominatim", "Wikipedia",
                                   "Wikimedia Commons", "REST Countries", "Frankfurter",
-                                  "Orbit Market local RSS/price adapter"],
-                    "routes": ["/api/orbit/status", "/api/search/news?q=...", "/api/search/places?q=...",
+                                  "Local Ollama (optional)", "Orbit Market local adapter"],
+                    "routes": ["/api/orbit/status", "/api/orbit/catalog",
+                        "/api/search/web?q=...", "/api/search/images?q=...", "/api/search/suggest?q=...",
+                        "/api/search/news?q=...", "/api/search/videos?q=...", "/api/search/research?q=...",
+                        "/api/search/books?q=...", "/api/ai/answer (POST JSON)", "/api/search/places?q=...",
                         "/api/weather?lat=18.5204&lon=73.8567", "/api/currency?from=USD&to=INR&amount=1",
                         "/api/knowledge?q=...", "/api/images/commons?q=...", "/api/countries?q=...",
                         "/api/market/quote?symbol=RELIANCE&exchange=NSE",
-                        "/api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day",
-                        "/api/search/videos (not available without a suitable provider)"]})
+                        "/api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day"]})
             elif parsed.path == "/api/search/web":
                 self.send_json({"ok": False, "provider": "Orbit Search local crawler",
                     "error": "Use Orbit Search's built-in Web tab for crawler results.",
