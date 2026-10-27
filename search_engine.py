@@ -371,9 +371,9 @@ class PublicCrawler:
 
             payload, charset, status_code = fetched
             try:
-                decoded = payload.decode(charset, "replace")
-            except LookupError:
-                # Invalid charset supplied by a remote website.
+                decoded = payload.decode(charset or "utf-8", "replace")
+            except (LookupError, TypeError):
+                # Invalid or missing charset supplied by a remote website.
                 decoded = payload.decode("utf-8", "replace")
             parser = PageParser()
             try:
