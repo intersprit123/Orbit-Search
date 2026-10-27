@@ -1,0 +1,40 @@
+name: Orbit syntax checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  python-and-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile Python modules
+        run: python -m py_compile search_engine.py advanced_features.py orbit_market.py orbit_api_hub.py
+      - name: Set up Node.js for browser JavaScript syntax check
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Extract and check embedded UI JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("search_engine.py").read_text(encoding="utf-8")
+          html_match = re.search(r'INDEX_HTML = r"""(.*?)"""', source, re.S)
+          if not html_match:
+              raise SystemExit("Could not find INDEX_HTML")
+          script_match = re.search(r"<script>(.*?)</script>", html_match.group(1), re.S)
+          if not script_match:
+              raise SystemExit("Could not find embedded UI script")
+          Path("/tmp/orbit-ui.js").write_text(script_match.group(1), encoding="utf-8")
+          PY
+          node --check /tmp/orbit-ui.js
