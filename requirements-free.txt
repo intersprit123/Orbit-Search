@@ -1,0 +1,4 @@
+# Optional no-key provider adapters for Orbit Search
+# Install into the same Python environment as orbit_api_hub.py.
+ddgs>=9.0.0
+yt-dlp>=2025.1.0
