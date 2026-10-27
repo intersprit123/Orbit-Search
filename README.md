@@ -4,7 +4,7 @@ A self-hosted web search project with a local crawler, SQLite/FTS5 index, browse
 
 ## Orbit ecosystem API hub
 
-Orbit now includes a modular API gateway for web/news/image/video search, place lookup, weather, currency conversion, encyclopedia search, country data, and market quotes/history. Optional provider keys are read from environment variables.
+Orbit includes a local API gateway for no-key public data: RSS news, place lookup, weather, currency conversion, encyclopedia search, Wikimedia Commons media, country data, and the local market adapter. The built-in Web tab uses the existing local crawler. External video search is intentionally not enabled.
 
 See [ORBIT_ECOSYSTEM.md](ORBIT_ECOSYSTEM.md) for setup, provider caveats, and endpoint details. The existing market service remains separate; see [ORBIT_MARKET.md](ORBIT_MARKET.md).
 
@@ -37,4 +37,4 @@ In a second terminal, start the hub:
 python3 orbit_api_hub.py --port 18092
 ```
 
-Check `http://127.0.0.1:18092/api/orbit/status`. Set `ORBIT_MARKET_URL` if your market service uses a different port. Provider keys are optional; see [ORBIT_ECOSYSTEM.md](ORBIT_ECOSYSTEM.md). Do not commit API keys or expose this unauthenticated prototype to the public internet.
+Check `http://127.0.0.1:18092/api/orbit/status`. Set `ORBIT_MARKET_URL` if your market service uses a different port. No API keys or developer-account signups are required for the hub's enabled public-data routes. See [ORBIT_ECOSYSTEM.md](ORBIT_ECOSYSTEM.md) for provider policies and limitations. Do not expose this unauthenticated prototype to the public internet.
