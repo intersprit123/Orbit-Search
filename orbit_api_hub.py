@@ -122,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
                     "routes": ["/api/orbit/status", "/api/orbit/catalog",
                         "/api/search/web?q=...", "/api/search/images?q=...", "/api/search/suggest?q=...",
                         "/api/search/news?q=...", "/api/search/videos?q=...", "/api/search/research?q=...",
-                        "/api/ai/answer (POST JSON)", "/api/search/places?q=...",
+                        "/api/search/books?q=...", "/api/ai/answer (POST JSON)", "/api/search/places?q=...",
                         "/api/weather?lat=18.5204&lon=73.8567", "/api/currency?from=USD&to=INR&amount=1",
                         "/api/knowledge?q=...", "/api/images/commons?q=...", "/api/countries?q=...",
                         "/api/market/quote?symbol=RELIANCE&exchange=NSE",
