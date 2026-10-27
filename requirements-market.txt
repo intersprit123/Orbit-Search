@@ -1,0 +1,2 @@
+# Optional price-history/quote adapter for Orbit Market (unofficial prototype)
+yfinance>=0.2.50
