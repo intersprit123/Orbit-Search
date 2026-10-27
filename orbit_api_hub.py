@@ -17,8 +17,8 @@ from typing import Any
 
 from orbit_free_apis import ai_answer, handle_api
 
-VERSION = "0.2"
-USER_AGENT = "OrbitSearch/0.2 (educational project; https://github.com/intersprit123/Orbit-Search)"
+VERSION = "0.3"
+USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MARKET_BASE = os.getenv("ORBIT_MARKET_URL", "http://127.0.0.1:8092").rstrip(" /")
 
 
