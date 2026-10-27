@@ -130,8 +130,13 @@ class Handler(BaseHTTPRequestHandler):
                 if result.get("ok"):
                     self.send_json(result)
                 else:
-                    self.send_json({"ok": False, "provider": "GNews", "error": result.get("error"),
-                        "setup": result.get("setup"), "fallback": MARKET_BASE + "/api/market/news?q=" + urllib.parse.quote(q)})
+                    try:
+                        fallback = request_json(url_with_params(MARKET_BASE + "/api/market/news", {"q": q, "limit": limit}))
+                        self.send_json({"ok": True, "provider": "Orbit Market RSS index", "query": q,
+                            "data": fallback, "note": "GNews key is not configured; results come from locally collected RSS headlines."})
+                    except ProviderError:
+                        self.send_json({"ok": False, "provider": "GNews", "error": result.get("error"),
+                            "setup": result.get("setup"), "fallback": "Start orbit_market.py and configure GNEWS_API_KEY for external news search."})
             elif parsed.path == "/api/search/images":
                 self.send_json(brave_search("images/search", q, limit))
             elif parsed.path == "/api/search/videos":
@@ -190,10 +195,30 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True, "provider": "REST Countries", "query": q, "count": len(data),
                     "results": data[:max(1, min(limit, 50))]})
             elif parsed.path == "/api/market/quote":
-                self.send_json(twelve_data_quote(p.get("symbol", [""])[0], p.get("exchange", ["NSE"])[0]))
+                symbol, exchange = p.get("symbol", [""])[0], p.get("exchange", ["NSE"])[0]
+                if TWELVE_DATA_KEY:
+                    self.send_json(twelve_data_quote(symbol, exchange))
+                else:
+                    try:
+                        data = request_json(url_with_params(MARKET_BASE + "/api/market/quote",
+                            {"symbol": symbol, "exchange": exchange}))
+                        self.send_json({"ok": True, "provider": "Orbit Market local adapter", "data": data})
+                    except ProviderError:
+                        self.send_json(twelve_data_quote(symbol, exchange))
             elif parsed.path == "/api/market/history":
-                self.send_json(twelve_data_history(p.get("symbol", [""])[0], p.get("exchange", ["NSE"])[0],
-                    p.get("interval", ["1day"])[0], limit))
+                symbol, exchange = p.get("symbol", [""])[0], p.get("exchange", ["NSE"])[0]
+                if TWELVE_DATA_KEY:
+                    self.send_json(twelve_data_history(symbol, exchange, p.get("interval", ["1day"])[0], limit))
+                else:
+                    period_map = {"1min": "1mo", "5min": "1mo", "15min": "3mo", "30min": "3mo",
+                                  "1h": "6mo", "4h": "1y", "1day": "1y", "1week": "5y", "1month": "max"}
+                    try:
+                        data = request_json(url_with_params(MARKET_BASE + "/api/market/history",
+                            {"symbol": symbol, "exchange": exchange, "period": period_map.get(p.get("interval", ["1day"])[0], "1y")}))
+                        self.send_json({"ok": True, "provider": "Orbit Market local adapter", "data": data,
+                            "note": "Local prototype data; source may be unofficial or delayed."})
+                    except ProviderError:
+                        self.send_json(twelve_data_history(symbol, exchange, p.get("interval", ["1day"])[0], limit))
             else:
                 self.send_json({"ok": False, "error": "Not found", "status": "/api/orbit/status"}, 404)
         except (ValueError, TypeError, KeyError):
