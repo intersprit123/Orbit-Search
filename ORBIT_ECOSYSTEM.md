@@ -70,6 +70,8 @@ Use URL encoding for search terms containing spaces or special characters. The s
 - **YouTube:** API key use is subject to YouTube Data API quota and terms.
 - **Security:** the hub binds to localhost by default and has no authentication or per-user rate limits. Do not expose it to the public internet until authentication, rate limits, input validation, and deployment protections are added.
 
-## Integration status
+## UI integration
 
-This commit adds the backend API hub. It does not yet add tabs/buttons to the existing browser UI. The next UI step is to connect the existing search page to these routes and display provider/source labels, loading states, errors, and attribution.
+The existing Orbit Search page now includes tabs for Web API, Orbit News, Images API, Videos, Places, Weather, Currency, Knowledge, Wikimedia Commons, Countries, and Market. These tabs call the API Hub at `http://127.0.0.1:18092`; start the hub before using them. Existing local search, AI, semantic, book, GitHub, and research modes remain in place.
+
+The hub permits browser requests from localhost origins for this local UI. The Market tab uses the local Orbit Market service when Twelve Data is not configured. This is still an educational prototype: external provider errors, quotas, and missing keys are shown rather than hidden. Market results are not guaranteed live or licensed for redistribution.
