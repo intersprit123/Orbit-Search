@@ -143,39 +143,64 @@ def news_search(query: str, limit: int = 10) -> dict[str, Any]:
             "note": "Coverage and update times vary. Follow publisher terms for reuse."}
 
 
-def video_search(query: str, limit: int = 10) -> dict[str, Any]:
+def federated_search(query: str, limit: int = 10, sources: str = "web,news,research,books") -> dict[str, Any]:
+    """Merge results from selected keyless providers, tolerating partial failures."""
     if not query:
         raise ValueError("Missing q query parameter.")
-    try:
-        import yt_dlp
-    except ImportError as exc:
-        raise AdapterError("yt-dlp is not installed. Run: python3 -m pip install -r requirements-free.txt") from exc
-    opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-            "extract_flat": True, "ignoreerrors": True, "noplaylist": True,
-            "socket_timeout": 12}
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        data = ydl.extract_info(f"ytsearch{_limit(limit, maximum=20)}:{query}", download=False)
-    results = []
-    for row in (data or {}).get("entries", []) or []:
-        if not row:
-            continue
-        url = row.get("webpage_url") or row.get("url") or ""
-        if url and not url.startswith(("https://", "http://")):
-            video_id = str(row.get("id") or "")
-            url = "https://www.youtube.com/watch?v=" + video_id if video_id else ""
-        if not url:
-            continue
-        results.append({
-            "title": row.get("title") or "Untitled video", "url": url,
-            "video_id": row.get("id"), "duration": row.get("duration"),
-            "channel": row.get("channel") or row.get("uploader"),
-            "thumbnail": row.get("thumbnail"),
-            "view_count": row.get("view_count"),
-            "source": "YouTube via yt-dlp", "kind": "video",
-        })
-    return {"ok": True, "provider": "YouTube search via yt-dlp", "query": query,
-            "count": len(results), "results": results,
-            "note": "Search metadata only. Download only media you are authorized to save; no DRM or access-control bypass."}
+    adapters = {
+        "web": web_search,
+        "images": image_search,
+        "news": news_search,
+        "research": research_search,
+        "books": books_search,
+    }
+    requested = [name.strip().lower() for name in str(sources).split(",") if name.strip()]
+    if not requested:
+        requested = ["web", "news", "research", "books"]
+    unknown = sorted(set(requested) - set(adapters))
+    if unknown:
+        raise ValueError("Unsupported sources: " + ", ".join(unknown) +
+                         ". Choose web, images, news, research, books.")
+    per_source_limit = min(_limit(limit, maximum=20), 8)
+    combined: list[dict[str, Any]] = []
+    provider_status: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for name in dict.fromkeys(requested):
+        try:
+            payload = adapters[name](query, per_source_limit)
+            rows = payload.get("results", [])
+            added = 0
+            for row in rows:
+                item = dict(row)
+                url = item.get("url") or item.get("page_url") or item.get("image_url") or ""
+                if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+                    continue
+                key = url.rstrip("/").casefold()
+                if key in seen_urls:
+                    continue
+                seen_urls.add(key)
+                item["url"] = url
+                item.setdefault("kind", name)
+                item.setdefault("provider", payload.get("provider", name))
+                combined.append(item)
+                added += 1
+            provider_status.append({"name": name, "ok": True, "count": added})
+        except Exception as exc:
+            provider_status.append({"name": name, "ok": False, "error": type(exc).__name__})
+    if provider_status and not any(item["ok"] for item in provider_status):
+        failures = ", ".join(item["name"] + ":" + item["error"] for item in provider_status)
+        raise AdapterError("All selected search providers failed (" + failures + ").")
+    combined.sort(key=lambda row: (0 if row.get("kind") == "web" else 1, str(row.get("title", "")).casefold()))
+    return {
+        "ok": True,
+        "provider": "Orbit federated search",
+        "query": query,
+        "count": min(len(combined), _limit(limit, maximum=20)),
+        "results": combined[:_limit(limit, maximum=20)],
+        "providers": provider_status,
+        "partial": any(not item["ok"] for item in provider_status),
+        "note": "Provider availability, quotas, attribution and reuse terms vary.",
+    }
 
 
 def books_search(query: str, limit: int = 10) -> dict[str, Any]:
@@ -274,7 +299,6 @@ CATALOG = {
         {"name": "DuckDuckGo image search", "route": "/api/search/images?q=...", "status": "optional_dependency"},
         {"name": "DuckDuckGo suggestions", "route": "/api/search/suggest?q=...", "status": "optional_dependency_with_wikipedia_fallback"},
         {"name": "GDELT news search", "route": "/api/search/news?q=...", "status": "implemented"},
-        {"name": "YouTube video search", "route": "/api/search/videos?q=...", "status": "optional_dependency"},
         {"name": "arXiv scholarly search", "route": "/api/search/research?q=...", "status": "implemented"},
         {"name": "Google Books metadata search", "route": "/api/search/books?q=...", "status": "public_quota_applies"},
         {"name": "Local-model AI answer", "route": "/api/ai/answer", "status": "implemented_ollama_optional"},
@@ -308,6 +332,11 @@ def handle_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, 
     try:
         if path == "/api/orbit/catalog":
             return 200, {"ok": True, "catalog": CATALOG}
+        if path in {"/api/search/all", "/api/search/advanced"}:
+            raw_sources = params.get("sources", ["web,news,research,books"])[0]
+            return 200, federated_search(q, limit, raw_sources)
+        if path == "/api/search/related":
+            return 200, suggestions(q, limit)
         if path == "/api/search/web":
             return 200, web_search(q, limit)
         if path == "/api/search/images":
@@ -316,8 +345,6 @@ def handle_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, 
             return 200, suggestions(q, limit)
         if path == "/api/search/news":
             return 200, news_search(q, limit)
-        if path == "/api/search/videos":
-            return 200, video_search(q, limit)
         if path == "/api/search/research":
             return 200, research_search(q, limit)
         if path == "/api/search/books":

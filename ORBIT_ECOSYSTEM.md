@@ -27,6 +27,9 @@ Open `http://127.0.0.1:18092/api/orbit/status` to check the hub. The hub uses on
 
 ## No-key endpoints
 
+| `GET /api/search/all?q=...&sources=web,news,research,books` | Federated search with provider status, deduplication, and partial-failure reporting | Optional DDGS web/image search, GDELT news, arXiv, Google Books; specify `sources=web,images,news,research,books` to select sources |
+| `GET /api/search/related?q=...` | Related search suggestions | DDGS with Wikipedia OpenSearch fallback |
+
 | Endpoint | Purpose | Provider / notes |
 |---|---|---|
 | `GET /api/orbit/status` | Service status | Local hub |
@@ -45,7 +48,7 @@ Open `http://127.0.0.1:18092/api/orbit/status` to check the hub. The hub uses on
 - No Brave Search, GNews, Twelve Data, or YouTube API keys.
 - No paid API subscriptions, developer-account setup, or adult-account signup flows.
 - The built-in Orbit Search Web tab uses Orbit's existing local crawler/search API. It is separate from this hub.
-- Video search is unavailable through the hub for now; a suitable no-key public API was not added.
+- Video search is intentionally excluded from this build.
 - The local market adapter may use unofficial data sources. Do not treat it as guaranteed real-time financial data.
 
 ## Public-service rules
