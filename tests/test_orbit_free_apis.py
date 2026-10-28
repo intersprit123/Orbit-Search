@@ -36,7 +36,7 @@ class FreeApiTests(unittest.TestCase):
         self.assertIn("Unsupported sources", payload["error"])
 
     def test_federated_search_reports_partial_provider_failure(self):
-        with patch.object(api, "web_search", side_effect=api.AdapterError("not available")), \\
+        with patch.object(api, "web_search", side_effect=api.AdapterError("not available")), \
              patch.object(api, "news_search", return_value={"provider": "news", "results": [
                  {"title": "News", "url": "https://news.example/story", "kind": "news"}
              ]}):
