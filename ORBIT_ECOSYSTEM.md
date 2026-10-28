@@ -127,7 +127,7 @@ Get recent earthquake events:
 - GitHub's unauthenticated REST API is rate-limited. Handle HTTP 403/429 and wait instead of retrying rapidly.
 - OpenAlex supports basic keyless use; higher-volume users should review its current authentication and rate-limit policy.
 - Crossref, Open Library, Nominatim, MusicBrainz and other public services have usage expectations and may throttle callers.
-- Provider outages can cause 404, 429, 502 or partial responses. Federated endpoints report provider status rather than silently claiming all providers succeeded.
+- Provider outages can cause 404, 429, 502 or partial responses. Federated search calls up to five selected providers concurrently, preserves each provider's result order, and reports per-provider latency and partial failures rather than silently claiming all providers succeeded.
 - openFDA, ClinicalTrials.gov and other health-data results are public information, not clinical recommendations.
 - Public metadata or media URLs do not imply permission to redistribute the underlying work. Check licences and attribution before reuse.
 - DNS, RDAP and certificate transparency results are informational. A lack of a result does not prove a domain, URL or certificate is safe.
