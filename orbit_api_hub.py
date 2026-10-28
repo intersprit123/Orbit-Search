@@ -17,7 +17,7 @@ from typing import Any
 
 from orbit_free_apis import ai_answer, handle_api
 
-VERSION = "0.4"
+VERSION = "0.5"
 USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MARKET_BASE = os.getenv("ORBIT_MARKET_URL", "http://127.0.0.1:8092").rstrip(" /")
 
@@ -125,7 +125,7 @@ class Handler(BaseHTTPRequestHandler):
                                   "RDAP", "crt.sh", "Open-Meteo", "OpenStreetMap Nominatim",
                                   "Wikimedia Commons", "REST Countries", "Frankfurter",
                                   "Local Ollama (optional)", "Orbit Market local adapter"],
-                    "routes": ["/api/orbit/status", "/api/orbit/catalog", "/api/orbit/routes",
+                    "routes": ["/api/orbit/status", "/api/orbit/health", "/api/orbit/metrics", "/api/orbit/catalog", "/api/orbit/routes",
                         "/api/search/all?q=...&sources=web,news,research,books", "/api/search/related?q=...",
                         "/api/search/web?q=...", "/api/search/images?q=...", "/api/search/suggest?q=...",
                         "/api/search/news?q=...", "/api/search/research?q=...", "/api/search/books?q=...",
