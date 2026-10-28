@@ -171,7 +171,7 @@ def _openalex(entity: str, q: str, limit: int) -> dict[str, Any]:
     if entity not in allowed:
         raise ValueError("Unsupported OpenAlex entity.")
     data = _json(_url("https://api.openalex.org/" + entity, {
-        "search": q, "per-page": limit, "mailto": "orbit-search@example.invalid",
+        "search": q, "per-page": limit,
     }))
     rows = []
     for item in data.get("results", []) or []:
@@ -193,7 +193,7 @@ def _crossref(entity: str, q: str, limit: int) -> dict[str, Any]:
     if entity not in allowed:
         raise ValueError("Unsupported Crossref entity.")
     data = _json(_url("https://api.crossref.org/" + entity, {
-        "query": q, "rows": limit, "select": "DOI,title,author,published,container-title,URL,type,publisher,ISSN,score",
+        "query": q, "rows": limit,
     }))
     message = data.get("message", {})
     rows = []
@@ -220,7 +220,7 @@ def _europepmc(q: str, limit: int) -> dict[str, Any]:
         pmid = item.get("pmid")
         pmcid = item.get("pmcid")
         link = ("https://doi.org/" + doi if doi else
-                "https://europepmc.org/article/PMC/" + pmcid.removeprefix("PMC") if pmcid else
+                "https://europepmc.org/articles/" + pmcid if pmcid else
                 "https://pubmed.ncbi.nlm.nih.gov/" + pmid + "/" if pmid else "")
         rows.append({
             "title": item.get("title"), "url": link, "doi": doi, "pmid": pmid, "pmcid": pmcid,
@@ -1032,11 +1032,20 @@ def _network(path: str, params: dict[str, list[str]], limit: int) -> dict[str, A
         data = _json("https://rdap.org/domain/" + urllib.parse.quote(name, safe=""))
         events = [{"action": x.get("eventAction"), "date": x.get("eventDate")} for x in data.get("events", []) or []]
         nameservers = [x.get("ldhName") for x in data.get("nameservers", []) or []]
+        registrar = None
+        for entity in data.get("entities", []) or []:
+            vcard = entity.get("vcardArray", [])
+            if "registrar" not in entity.get("roles", []) or len(vcard) < 2:
+                continue
+            for field in vcard[1] or []:
+                if isinstance(field, list) and len(field) >= 4 and field[0] == "fn":
+                    registrar = field[3]
+                    break
+            if registrar:
+                break
         return {"ok": True, "provider": "RDAP", "domain": name, "handle": data.get("handle"),
                 "status": data.get("status", []), "events": events, "nameservers": nameservers,
-                "registrar": next((e.get("vcardArray", [None, []])[1][1][3]
-                                   for e in data.get("entities", []) if "registrar" in e.get("roles", [])
-                                   and len(e.get("vcardArray", [])) > 1 and len(e.get("vcardArray", [None, []])[1]) > 1), None)}
+                "registrar": registrar}
     if path == "/api/network/certificates":
         name = _domain(params, "domain")
         data = _json(_url("https://crt.sh/", {"q": "%." + name, "output": "json"}), max_bytes=2_000_000)
