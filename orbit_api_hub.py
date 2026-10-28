@@ -17,7 +17,7 @@ from typing import Any
 
 from orbit_free_apis import ai_answer, handle_api
 
-VERSION = "0.3"
+VERSION = "0.4"
 USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MARKET_BASE = os.getenv("ORBIT_MARKET_URL", "http://127.0.0.1:8092").rstrip(" /")
 
@@ -115,18 +115,27 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path in {"/", "/api/orbit/status"}:
                 self.send_json({"ok": True, "service": "Orbit API Hub", "version": VERSION,
                     "api_keys_required": False, "market_base": MARKET_BASE,
-                    "providers": ["DuckDuckGo via optional DDGS client", "GDELT News",
-                                  "arXiv", "Open-Meteo", "OpenStreetMap Nominatim", "Wikipedia",
+                    "providers": ["DuckDuckGo/DDGS optional client", "GDELT", "OpenAlex", "Crossref",
+                                  "Europe PMC", "ClinicalTrials.gov", "openFDA", "GitHub", "GitLab",
+                                  "Stack Exchange", "Hugging Face Hub", "npm", "PyPI", "crates.io",
+                                  "Maven Central", "RubyGems", "NuGet", "Wikipedia", "Wikidata",
+                                  "Internet Archive", "Library of Congress", "USGS", "GBIF",
+                                  "Spaceflight News", "Apple iTunes", "MusicBrainz", "TVmaze",
+                                  "PokéAPI", "Open Food Facts", "World Bank", "Cloudflare DNS/DoH",
+                                  "RDAP", "crt.sh", "Open-Meteo", "OpenStreetMap Nominatim",
                                   "Wikimedia Commons", "REST Countries", "Frankfurter",
                                   "Local Ollama (optional)", "Orbit Market local adapter"],
-                    "routes": ["/api/orbit/status", "/api/orbit/catalog",
+                    "routes": ["/api/orbit/status", "/api/orbit/catalog", "/api/orbit/routes",
                         "/api/search/all?q=...&sources=web,news,research,books", "/api/search/related?q=...",
                         "/api/search/web?q=...", "/api/search/images?q=...", "/api/search/suggest?q=...",
-                        "/api/search/news?q=...", "/api/search/research?q=...",
-                        "/api/search/books?q=...", "/api/ai/answer (POST JSON)", "/api/search/places?q=...",
-                        "/api/weather?lat=18.5204&lon=73.8567", "/api/currency?from=USD&to=INR&amount=1",
-                        "/api/knowledge?q=...", "/api/images/commons?q=...", "/api/countries?q=...",
-                        "/api/market/quote?symbol=RELIANCE&exchange=NSE",
+                        "/api/search/news?q=...", "/api/search/research?q=...", "/api/search/books?q=...",
+                        "/api/ai/answer (POST JSON)", "/api/scholarly/*", "/api/developer/*",
+                        "/api/packages/*", "/api/knowledge/*", "/api/archives/*", "/api/health/*",
+                        "/api/education/*", "/api/media/*", "/api/entertainment/*", "/api/games/*",
+                        "/api/food/*", "/api/science/*", "/api/economy/worldbank/*", "/api/network/*",
+                        "/api/search/places?q=...", "/api/weather?lat=18.5204&lon=73.8567",
+                        "/api/currency?from=USD&to=INR&amount=1", "/api/images/commons?q=...",
+                        "/api/countries?q=...", "/api/market/quote?symbol=RELIANCE&exchange=NSE",
                         "/api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day"]})
             elif parsed.path == "/api/search/web":
                 self.send_json({"ok": False, "provider": "Orbit Search local crawler",
