@@ -32,11 +32,12 @@ python3 -m pip install -r requirements-free.txt
 ```
 
 The hub adds these routes:
+- `GET /api/search/all?q=...&sources=web,news,research,books` — federated search across selected providers, with partial-failure reporting and URL deduplication. Supported sources: `web`, `images`, `news`, `research`, `books`.
+- `GET /api/search/related?q=...` — related-search suggestions.
 - `GET /api/search/web?q=...` — web search through the optional DDGS community client.
 - `GET /api/search/images?q=...` — image search; verify each original image's licence before reuse.
 - `GET /api/search/suggest?q=...` — suggestions, with Wikipedia OpenSearch fallback if DDGS is absent.
 - `GET /api/search/news?q=...` — GDELT news search.
-- `GET /api/search/videos?q=...` — YouTube search metadata via optional yt-dlp; it does not download video files.
 - `GET /api/search/research?q=...` — arXiv paper metadata.
 - `GET /api/search/books?q=...` — public Google Books metadata (quota applies).
 - `POST /api/ai/answer` — grounded answer from supplied result snippets; uses local Ollama if running, otherwise returns a clearly labelled source digest.
