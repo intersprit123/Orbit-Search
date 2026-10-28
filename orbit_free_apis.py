@@ -13,6 +13,8 @@ import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from orbit_extra_apis import EXTRA_CATALOG, handle_extra_api
@@ -142,7 +144,7 @@ def news_search(query: str, limit: int = 10) -> dict[str, Any]:
 
 
 def federated_search(query: str, limit: int = 10, sources: str = "web,news,research,books") -> dict[str, Any]:
-    """Merge results from selected keyless providers, tolerating partial failures."""
+    """Search selected providers concurrently, preserving each source's ranking."""
     if not query:
         raise ValueError("Missing q query parameter.")
     adapters = {
@@ -159,16 +161,43 @@ def federated_search(query: str, limit: int = 10, sources: str = "web,news,resea
     if unknown:
         raise ValueError("Unsupported sources: " + ", ".join(unknown) +
                          ". Choose web, images, news, research, books.")
+
+    names = list(dict.fromkeys(requested))
     per_source_limit = min(_limit(limit, maximum=20), 8)
+
+    def run_source(name: str) -> tuple[str, dict[str, Any] | None, str | None, float]:
+        started = time.monotonic()
+        try:
+            payload = adapters[name](query, per_source_limit)
+            if not isinstance(payload, dict):
+                raise TypeError("Provider returned a non-object response")
+            return name, payload, None, (time.monotonic() - started) * 1000
+        except Exception as exc:
+            return name, None, type(exc).__name__, (time.monotonic() - started) * 1000
+
+    # Keep fan-out bounded: one client request can trigger at most five upstream calls.
+    # Futures are collected in the user's source order so output ordering is stable,
+    # even though the network calls run concurrently.
+    with ThreadPoolExecutor(max_workers=min(5, len(names))) as executor:
+        futures = {name: executor.submit(run_source, name) for name in names}
+        source_results = [futures[name].result() for name in names]
+
     combined: list[dict[str, Any]] = []
     provider_status: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
-    for name in dict.fromkeys(requested):
+    for name, payload, error, elapsed_ms in source_results:
+        if error is not None or payload is None:
+            provider_status.append({
+                "name": name, "ok": False, "error": error or "ProviderError",
+                "latency_ms": round(elapsed_ms, 2),
+            })
+            continue
+        rows = payload.get("results", [])
+        added = 0
         try:
-            payload = adapters[name](query, per_source_limit)
-            rows = payload.get("results", [])
-            added = 0
             for row in rows:
+                if not isinstance(row, dict):
+                    continue
                 item = dict(row)
                 url = item.get("url") or item.get("page_url") or item.get("image_url") or ""
                 if not isinstance(url, str) or not url.startswith(("https://", "http://")):
@@ -182,24 +211,34 @@ def federated_search(query: str, limit: int = 10, sources: str = "web,news,resea
                 item.setdefault("provider", payload.get("provider", name))
                 combined.append(item)
                 added += 1
-            provider_status.append({"name": name, "ok": True, "count": added})
+            provider_status.append({
+                "name": name, "ok": True, "count": added,
+                "latency_ms": round(elapsed_ms, 2),
+            })
         except Exception as exc:
-            provider_status.append({"name": name, "ok": False, "error": type(exc).__name__})
+            provider_status.append({
+                "name": name, "ok": False, "error": type(exc).__name__,
+                "latency_ms": round(elapsed_ms, 2),
+            })
+
     if provider_status and not any(item["ok"] for item in provider_status):
         failures = ", ".join(item["name"] + ":" + item["error"] for item in provider_status)
         raise AdapterError("All selected search providers failed (" + failures + ").")
-    combined.sort(key=lambda row: (0 if row.get("kind") == "web" else 1, str(row.get("title", "")).casefold()))
+    # Do not alphabetize titles: upstream order usually represents relevance.
+    # Results retain source order and each provider's native ranking.
+    result_limit = _limit(limit, maximum=20)
     return {
         "ok": True,
         "provider": "Orbit federated search",
         "query": query,
-        "count": min(len(combined), _limit(limit, maximum=20)),
-        "results": combined[:_limit(limit, maximum=20)],
+        "count": min(len(combined), result_limit),
+        "results": combined[:result_limit],
         "providers": provider_status,
         "partial": any(not item["ok"] for item in provider_status),
-        "note": "Provider availability, quotas, attribution and reuse terms vary.",
+        "latency_ms": round(max((item["latency_ms"] for item in provider_status), default=0), 2),
+        "note": "Providers run concurrently with bounded fan-out. Latency is per-provider wall time; availability, quotas, attribution and reuse terms vary.",
     }
-
+}
 
 def books_search(query: str, limit: int = 10) -> dict[str, Any]:
     """Search public Google Books metadata; quota and terms still apply."""
