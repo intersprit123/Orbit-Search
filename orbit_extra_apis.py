@@ -62,7 +62,9 @@ EXTRA_CATALOG: list[dict[str, str]] = [
     {"route": "GET /api/packages/nuget/search?q=...", "provider": "NuGet", "description": "Search .NET packages."},
     {"route": "GET /api/knowledge/{summary,page,random,categories}", "provider": "Wikipedia REST/Action API", "description": "Look up page summaries, extracts, random pages and categories."},
     {"route": "GET /api/knowledge/wikidata/{search,entity}", "provider": "Wikidata", "description": "Search entities and resolve Q identifiers."},
-    {"route": "GET /api/archives/search?q=...", "provider": "Internet Archive", "description": "Search public archive metadata."},
+    {"route": "GET /api/books/openlibrary/{search,authors,isbn,author,work,editions,subjects}", "provider": "Open Library", "description": "Search books and look up ISBN, author, work, edition and subject records; interactive use only, cache responses."},
+    {"route": "GET /api/knowledge/opensearch?q=...", "provider": "Wikipedia OpenSearch", "description": "Get article-title suggestions for a query."},
+    {"route": "GET /api/archives/search?q=...", "provider": "Internet Archive", "description": "Search public archive metadata."}
     {"route": "GET /api/archives/metadata?id=...", "provider": "Internet Archive", "description": "Retrieve metadata for an archive item."},
     {"route": "GET /api/archives/wayback?url=https://...", "provider": "Internet Archive Wayback Machine", "description": "Find available snapshots of a URL."},
     {"route": "GET /api/open-data/library-of-congress/search?q=...", "provider": "Library of Congress", "description": "Search public catalogue records and digital collections."},
@@ -589,7 +591,7 @@ def _packages(path: str, params: dict[str, list[str]], limit: int) -> dict[str, 
         if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
             raise ValueError("Invalid crate name.")
         data = _json("https://crates.io/api/v1/crates/" + urllib.parse.quote(name, safe=""),
-                     headers={"User-Agent": USER_AGENT + " (mailto:maintainers@example.invalid)"})
+                     headers={"User-Agent": USER_AGENT})
         item = data.get("crate", {})
         return {"ok": True, "provider": "crates.io", "result": item}
     if path == "/api/packages/maven/search":
@@ -647,6 +649,20 @@ def _wikipedia(path: str, params: dict[str, list[str]], limit: int) -> dict[str,
             "title": page.get("title"), "extract": page.get("extract"), "url": page.get("fullurl"),
             "thumbnail": (page.get("thumbnail") or {}).get("source"),
         }}
+    if path == "/api/knowledge/opensearch":
+        q = _required(params, "q")
+        lang = _value(params, "lang", "en").lower()
+        if not re.fullmatch(r"[a-z-]{2,12}", lang):
+            raise ValueError("lang must be a language code such as en.")
+        data = _json(_url("https://" + lang + ".wikipedia.org/w/api.php", {
+            "action": "opensearch", "search": q, "limit": min(limit, 10),
+            "namespace": 0, "format": "json",
+        }))
+        suggestions = data[1] if isinstance(data, list) and len(data) > 1 else []
+        urls = data[3] if isinstance(data, list) and len(data) > 3 else []
+        rows = [{"title": title, "url": urls[i] if i < len(urls) else ""}
+                for i, title in enumerate(suggestions)]
+        return _normal_results("Wikipedia OpenSearch", q, rows)
     if path == "/api/knowledge/random":
         data = _json(_url("https://en.wikipedia.org/w/api.php", {
             "action": "query", "generator": "random", "grnnamespace": 0, "grnlimit": 1,
@@ -675,6 +691,75 @@ def _wikipedia(path: str, params: dict[str, list[str]], limit: int) -> dict[str,
             "languages": _value(params, "lang", "en"), "format": "json",
         }))
         return {"ok": True, "provider": "Wikidata", "result": data.get("entities", {}).get(entity_id)}
+    return None
+
+
+def _openlibrary(path: str, params: dict[str, list[str]], limit: int) -> dict[str, Any] | None:
+    base = "https://openlibrary.org"
+    if path == "/api/books/openlibrary/search":
+        q = _required(params, "q")
+        fields = "key,title,author_name,first_publish_year,isbn,cover_i,edition_count,subject"
+        data = _json(_url(base + "/search.json", {"q": q, "limit": min(limit, 20), "fields": fields}))
+        rows = []
+        for x in data.get("docs", []) or []:
+            key = x.get("key", "")
+            cover = x.get("cover_i")
+            rows.append({"title": x.get("title"), "url": base + key if key else "",
+                         "authors": x.get("author_name", []),
+                         "first_publish_year": x.get("first_publish_year"),
+                         "isbn": (x.get("isbn") or [])[:5], "edition_count": x.get("edition_count"),
+                         "subjects": (x.get("subject") or [])[:10],
+                         "cover": f"https://covers.openlibrary.org/b/id/{cover}-M.jpg" if cover else None})
+        return _normal_results("Open Library", q, rows, total=data.get("numFound"),
+                               note="Use for interactive human book discovery; cache responses and do not bulk harvest.")
+    if path == "/api/books/openlibrary/authors":
+        q = _required(params, "q")
+        data = _json(_url(base + "/search/authors.json", {"q": q, "limit": min(limit, 20)}))
+        rows = [{"title": x.get("name"), "url": base + x["key"] if x.get("key") else "",
+                 "key": x.get("key"), "top_work": x.get("top_work"),
+                 "work_count": x.get("work_count"), "birth_date": x.get("birth_date")}
+                for x in data.get("docs", []) or []]
+        return _normal_results("Open Library", q, rows, total=data.get("numFound"))
+    if path == "/api/books/openlibrary/isbn":
+        isbn = _required(params, "isbn", 20).replace("-", "").replace(" ", "")
+        if not re.fullmatch(r"(?:\d{9}[\dXx]|\d{13})", isbn):
+            raise ValueError("isbn must be a 10- or 13-character ISBN.")
+        data = _json(base + "/isbn/" + urllib.parse.quote(isbn, safe="") + ".json")
+        return {"ok": True, "provider": "Open Library", "isbn": isbn,
+                "result": data, "url": base + "/isbn/" + isbn}
+    if path in {"/api/books/openlibrary/author", "/api/books/openlibrary/work"}:
+        identifier = _required(params, "id", 30).upper()
+        is_author = path.endswith("/author")
+        pattern = r"OL[1-9][0-9]*A" if is_author else r"OL[1-9][0-9]*W"
+        if not re.fullmatch(pattern, identifier):
+            raise ValueError("id must be a valid Open Library author ID (OL...A) or work ID (OL...W).")
+        kind = "authors" if is_author else "works"
+        data = _json(base + "/" + kind + "/" + identifier + ".json")
+        return {"ok": True, "provider": "Open Library", "id": identifier, "result": data,
+                "url": base + "/" + kind + "/" + identifier}
+    if path == "/api/books/openlibrary/editions":
+        work = _required(params, "work", 30).upper()
+        if not re.fullmatch(r"OL[1-9][0-9]*W", work):
+            raise ValueError("work must be an Open Library work ID such as OL45804W.")
+        data = _json(_url(base + "/works/" + work + "/editions.json", {"limit": min(limit, 20)}))
+        rows = [{"title": x.get("title"), "publish_date": x.get("publish_date"),
+                 "publishers": x.get("publishers", []), "isbn": (x.get("isbn_13") or x.get("isbn_10") or [])[:3],
+                 "url": base + x["key"] if x.get("key") else ""}
+                for x in data.get("entries", []) or []]
+        return _normal_results("Open Library", work, rows, total=data.get("size"),
+                               note="Use for interactive human book discovery; cache responses and do not bulk harvest.")
+    if path == "/api/books/openlibrary/subjects":
+        subject = _required(params, "q", 100).lower().replace(" ", "_")
+        if not re.fullmatch(r"[a-z0-9_-]+", subject):
+            raise ValueError("subject must be a simple subject slug.")
+        data = _json(_url(base + "/subjects/" + urllib.parse.quote(subject, safe="") + ".json",
+                          {"limit": min(limit, 20)}))
+        rows = [{"title": x.get("title"), "url": base + x["key"] if x.get("key") else "",
+                 "key": x.get("key"), "authors": x.get("authors", []),
+                 "first_publish_year": x.get("first_publish_year")}
+                for x in data.get("works", []) or []]
+        return _normal_results("Open Library", subject, rows, total=data.get("work_count"),
+                               note="Use for interactive human book discovery; cache responses and do not bulk harvest.")
     return None
 
 
@@ -1142,6 +1227,9 @@ def handle_extra_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict
         packages = _packages(path, params, min(limit, 20))
         if packages is not None:
             return 200, packages
+        books = _openlibrary(path, params, min(limit, 20))
+        if books is not None:
+            return 200, books
         wiki = _wikipedia(path, params, min(limit, 50))
         if wiki is not None:
             return 200, wiki
