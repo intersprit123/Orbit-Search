@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile Python modules
-        run: python -m py_compile search_engine.py advanced_features.py orbit_market.py orbit_api_hub.py
+        run: python -m py_compile search_engine.py advanced_features.py orbit_market.py orbit_api_hub.py orbit_free_apis.py orbit_extra_apis.py orbit_resilience.py
       - name: Set up Node.js for browser JavaScript syntax check
         uses: actions/setup-node@v4
         with:
