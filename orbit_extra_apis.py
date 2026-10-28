@@ -64,7 +64,7 @@ EXTRA_CATALOG: list[dict[str, str]] = [
     {"route": "GET /api/knowledge/wikidata/{search,entity}", "provider": "Wikidata", "description": "Search entities and resolve Q identifiers."},
     {"route": "GET /api/books/openlibrary/{search,authors,isbn,author,work,editions,subjects}", "provider": "Open Library", "description": "Search books and look up ISBN, author, work, edition and subject records; interactive use only, cache responses."},
     {"route": "GET /api/knowledge/opensearch?q=...", "provider": "Wikipedia OpenSearch", "description": "Get article-title suggestions for a query."},
-    {"route": "GET /api/archives/search?q=...", "provider": "Internet Archive", "description": "Search public archive metadata."}
+    {"route": "GET /api/archives/search?q=...", "provider": "Internet Archive", "description": "Search public archive metadata."},
     {"route": "GET /api/archives/metadata?id=...", "provider": "Internet Archive", "description": "Retrieve metadata for an archive item."},
     {"route": "GET /api/archives/wayback?url=https://...", "provider": "Internet Archive Wayback Machine", "description": "Find available snapshots of a URL."},
     {"route": "GET /api/open-data/library-of-congress/search?q=...", "provider": "Library of Congress", "description": "Search public catalogue records and digital collections."},
@@ -1153,8 +1153,8 @@ def _network(path: str, params: dict[str, list[str]], limit: int) -> dict[str, A
 
 def handle_extra_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, Any]] | None:
     """Handle expanded API paths. Returns None for paths owned by other modules."""
-    limit = _int_param(params, "limit", 10, 50)
     try:
+        limit = _int_param(params, "limit", 10, 50)
         if path.startswith("/api/scholarly/openalex/"):
             entity = path.rsplit("/", 1)[-1]
             if entity == "work":
