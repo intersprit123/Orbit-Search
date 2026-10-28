@@ -1,66 +1,129 @@
-# Orbit Ecosystem — no-key setup
+# Orbit Ecosystem — public API setup
 
-Orbit Search's API Hub is designed to work without API keys, paid subscriptions, free trials, or third-party developer accounts. The hub uses public data services and the local Orbit Market adapter.
+Orbit Search combines a local crawler and local services with optional public-data APIs. Most expanded providers do not require keys for basic interactive use. A public endpoint can still be rate-limited, unavailable, or subject to attribution/licensing rules.
 
 ## Start the services
 
-Terminal 1: start Orbit Market on the port available on your machine (example: 8092):
+Terminal 1 — Orbit Market (required only for market data and its RSS index):
 
-```bash
-python3 orbit_market.py serve --port 8092
-```
+    python3 orbit_market.py serve --port 8092
 
-Terminal 2:
+Terminal 2 — API Hub:
 
-```bash
-python3 orbit_api_hub.py --port 18092
-```
+    python3 orbit_api_hub.py --port 18092
 
-If Orbit Market uses another port, set it before starting the hub:
+Optional provider package for the original web and image adapters:
 
-```bash
-export ORBIT_MARKET_URL=http://127.0.0.1:8091
-python3 orbit_api_hub.py --port 18092
-```
+    python3 -m pip install -r requirements-free.txt
 
-Open `http://127.0.0.1:18092/api/orbit/status` to check the hub. The hub uses only Python's standard library. No API keys or additional packages are required for the hub itself.
+Check status and discover the full route catalog:
 
-## No-key endpoints
+    curl -s http://127.0.0.1:18092/api/orbit/status
+    curl -s http://127.0.0.1:18092/api/orbit/routes
+    curl -s http://127.0.0.1:18092/api/orbit/catalog
 
-| `GET /api/search/all?q=...&sources=web,news,research,books` | Federated search with provider status, deduplication, and partial-failure reporting | Optional DDGS web/image search, GDELT news, arXiv, Google Books; specify `sources=web,images,news,research,books` to select sources |
-| `GET /api/search/related?q=...` | Related search suggestions | DDGS with Wikipedia OpenSearch fallback |
+The route inventory is generated from the code catalog and is the most up-to-date list of expanded routes. The current expansion contains more than 60 additional endpoint families. It adds no new weather routes.
+
+## Expanded public API families
+
+### Scholarly data and biomedical records
+- /api/scholarly/openalex/works, authors, sources, institutions, topics, publishers, work
+- /api/scholarly/crossref/works, journals, funders, members, doi
+- /api/scholarly/europepmc and /api/scholarly/europepmc/article
+- /api/health/clinicaltrials and /api/health/clinicaltrials/study
+- /api/health/openfda and /api/health/openfda/datasets
+
+### Developer tools, AI metadata and package registries
+- /api/developer/github/repos, repo, releases, commits, issues, contributors, languages, user, user-repos
+- /api/developer/gitlab/projects, project, releases
+- /api/developer/stackoverflow/search
+- /api/ai/huggingface/models, datasets, spaces, model, dataset, space
+- /api/packages/search
+- /api/packages/npm/search, package
+- /api/packages/pypi/project, release
+- /api/packages/crates/search, package
+- /api/packages/maven/search
+- /api/packages/rubygems/search, gem
+- /api/packages/nuget/search
+
+### Knowledge, books and archives
+- /api/knowledge/summary, page, random, categories
+- /api/knowledge/wikidata/search, entity
+- /api/archives/search, metadata, wayback
+- /api/open-data/library-of-congress/search
+- Existing /api/search/books and /api/images/commons remain available.
+
+### Science, media, entertainment and games
+- /api/science/earthquakes
+- /api/science/species and /api/science/occurrences
+- /api/science/space/news and /api/science/space/launches
+- /api/media/itunes/search, lookup
+- /api/media/musicbrainz/search
+- /api/entertainment/tv/search, show, episodes
+- /api/games/pokemon/search, details, ability, type, item
+- /api/food/search and /api/food/product
+
+### Education, economy and network lookup
+- /api/education/trivia, dictionary, synonyms, antonyms
+- /api/economy/worldbank/countries, indicator, indicators
+- /api/network/dns, domain, certificates
+
+## Request examples
+
+Search software packages across multiple registries:
+
+    curl --get 'http://127.0.0.1:18092/api/packages/search' --data-urlencode 'q=web framework'
+
+Search public repository metadata:
+
+    curl --get 'http://127.0.0.1:18092/api/developer/github/repos' --data-urlencode 'q=toy operating system'
+
+Search research records:
+
+    curl --get 'http://127.0.0.1:18092/api/scholarly/openalex/works' --data-urlencode 'q=operating system'
+
+Get a dictionary entry:
+
+    curl 'http://127.0.0.1:18092/api/education/dictionary?word=curious'
+
+Resolve DNS:
+
+    curl 'http://127.0.0.1:18092/api/network/dns?name=example.com&type=A'
+
+Get recent earthquake events:
+
+    curl 'http://127.0.0.1:18092/api/science/earthquakes?period=day&min_magnitude=2.5'
+
+## Original no-key endpoints
 
 | Endpoint | Purpose | Provider / notes |
 |---|---|---|
-| `GET /api/orbit/status` | Service status | Local hub |
-| `GET /api/search/news?q=...` | Search collected news headlines | Orbit Market's local RSS index; start Market and run `python3 orbit_market.py collect-news` |
-| `GET /api/search/places?q=...` | Place/address lookup | OpenStreetMap Nominatim; strict rate limits apply |
-| `GET /api/weather?lat=18.5204&lon=73.8567` | Current weather and 7-day forecast | Open-Meteo |
-| `GET /api/currency?from=USD&to=INR&amount=1` | Reference currency conversion | Frankfurter; not a bank quote |
-| `GET /api/knowledge?q=...` | Encyclopedia search | Wikipedia |
-| `GET /api/images/commons?q=...` | Media candidates | Wikimedia Commons; check each file's license |
-| `GET /api/countries?q=india` | Country reference data | REST Countries |
-| `GET /api/market/quote?symbol=RELIANCE&exchange=NSE` | Stock quote | Local Orbit Market adapter; unofficial and may be delayed |
-| `GET /api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day` | Price history | Local Orbit Market adapter; unofficial and may be delayed |
+| GET /api/orbit/status | Service status | Local hub |
+| GET /api/search/news?q=... | Existing market RSS news or GDELT search adapter | Results depend on selected route and available services |
+| GET /api/search/places?q=... | Place lookup | OpenStreetMap Nominatim is strictly rate-limited |
+| GET /api/weather?lat=18.5204&lon=73.8567 | Current weather and forecast | Existing endpoint; no new weather routes were added in this expansion |
+| GET /api/currency?from=USD&to=INR&amount=1 | Reference currency conversion | Frankfurter; not a bank quote |
+| GET /api/knowledge?q=... | Encyclopedia search | Wikipedia |
+| GET /api/images/commons?q=... | Public media candidates | Wikimedia Commons; check each file’s licence |
+| GET /api/countries?q=india | Country reference data | REST Countries |
+| GET /api/market/quote?symbol=RELIANCE&exchange=NSE | Stock quote | Local Orbit Market adapter; unofficial and may be delayed |
+| GET /api/market/history?symbol=RELIANCE&exchange=NSE&interval=1day | Price history | Local Orbit Market adapter; unofficial and may be delayed |
 
-## What is intentionally not enabled?
+## Important usage limits
 
-- No Brave Search, GNews, Twelve Data, or YouTube API keys.
-- No paid API subscriptions, developer-account setup, or adult-account signup flows.
-- The built-in Orbit Search Web tab uses Orbit's existing local crawler/search API. It is separate from this hub.
-- Video search is intentionally excluded from this build.
-- The local market adapter may use unofficial data sources. Do not treat it as guaranteed real-time financial data.
+- GitHub's unauthenticated REST API is rate-limited. Handle HTTP 403/429 and wait instead of retrying rapidly.
+- OpenAlex supports basic keyless use; higher-volume users should review its current authentication and rate-limit policy.
+- Crossref, Open Library, Nominatim, MusicBrainz and other public services have usage expectations and may throttle callers.
+- Provider outages can cause 404, 429, 502 or partial responses. Federated endpoints report provider status rather than silently claiming all providers succeeded.
+- openFDA, ClinicalTrials.gov and other health-data results are public information, not clinical recommendations.
+- Public metadata or media URLs do not imply permission to redistribute the underlying work. Check licences and attribution before reuse.
+- DNS, RDAP and certificate transparency results are informational. A lack of a result does not prove a domain, URL or certificate is safe.
+- The API hub is bound to localhost by default. Do not expose it publicly without authentication, request limits, logging, and a security review.
 
-## Public-service rules
-
-“No API key” does not mean unlimited use or unrestricted reuse. Respect provider policies and attribution/licensing requirements:
-
-- **Open-Meteo:** free for non-commercial use under its terms; check current terms and attribution requirements: https://open-meteo.com/en/terms
-- **Nominatim / OpenStreetMap:** public Nominatim has strict usage limits; do not use for autocomplete or bulk requests. Attribution is required: https://operations.osmfoundation.org/policies/nominatim/
-- **Wikimedia APIs:** follow access policy and identify your application: https://www.mediawiki.org/wiki/Wikimedia_APIs/Access_policy
-- **Wikimedia Commons:** individual files have different licenses; check each file before reuse.
-- **Wikipedia:** respect Wikimedia API policy and source attribution.
-- **Frankfurter:** reference exchange rates can lag and are not guaranteed bank/trading rates.
-- **REST Countries:** public community API; use responsibly and expect availability/schema changes.
-
-Keep the hub bound to localhost. Do not expose it to the internet without authentication, rate limiting, and a security review.
+Official documentation:
+- [OpenAlex API](https://help.openalex.org/api/)
+- [Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)
+- [GitHub REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+- [Open Library API](https://openlibrary.org/developers/api)
+- [PyPI JSON API](https://docs.pypi.org/api/json/)
+- [ICANN RDAP](https://www.icann.org/rdap/)
