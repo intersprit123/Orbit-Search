@@ -28,6 +28,22 @@ class FreeApiTests(unittest.TestCase):
         self.assertEqual(len(payload["providers"]), 2)
         self.assertFalse(payload["partial"])
 
+
+    def test_federated_search_preserves_provider_ranking_and_reports_latency(self):
+        with patch.object(api, "web_search", return_value={"provider": "web", "results": [
+            {"title": "Z highly relevant", "url": "https://example.com/z"},
+            {"title": "A less relevant", "url": "https://example.com/a"},
+        ]}), patch.object(api, "news_search", return_value={"provider": "news", "results": [
+            {"title": "News item", "url": "https://news.example/story"},
+        ]}):
+            payload = api.federated_search("orbit", 10, "web,news")
+        self.assertEqual(
+            [row["title"] for row in payload["results"]],
+            ["Z highly relevant", "A less relevant", "News item"],
+        )
+        self.assertGreaterEqual(payload["latency_ms"], 0)
+        self.assertTrue(all("latency_ms" in provider for provider in payload["providers"]))
+
     def test_federated_search_rejects_unknown_provider(self):
         status, payload = api.handle_api("/api/search/all", {
             "q": ["orbit"], "sources": ["brave"]
