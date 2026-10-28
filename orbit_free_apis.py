@@ -15,6 +15,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from orbit_extra_apis import EXTRA_CATALOG, handle_extra_api
+
 USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MAX_QUERY = 300
 
@@ -327,11 +329,24 @@ CATALOG = {
 
 def handle_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, Any]] | None:
     """Return (HTTP status, JSON object) for handled paths; None means not handled."""
+    extra = handle_extra_api(path, params)
+    if extra is not None:
+        return extra
     q = _query(params)
     limit = _limit(params.get("limit", ["10"])[0])
     try:
         if path == "/api/orbit/catalog":
-            return 200, {"ok": True, "catalog": CATALOG}
+            catalog = dict(CATALOG)
+            catalog["additional_public_apis"] = EXTRA_CATALOG
+            return 200, {"ok": True, "catalog": catalog}
+        if path == "/api/orbit/routes":
+            return 200, {"ok": True, "standard_routes": [
+                "/api/orbit/status", "/api/orbit/catalog", "/api/search/all", "/api/search/web",
+                "/api/search/images", "/api/search/suggest", "/api/search/related",
+                "/api/search/news", "/api/search/research", "/api/search/books", "/api/ai/answer",
+                "/api/knowledge", "/api/images/commons", "/api/search/places", "/api/countries",
+                "/api/currency", "/api/market/quote", "/api/market/history"],
+                "expanded_routes": EXTRA_CATALOG, "expanded_route_families": len(EXTRA_CATALOG)}
         if path in {"/api/search/all", "/api/search/advanced"}:
             raw_sources = params.get("sources", ["web,news,research,books"])[0]
             return 200, federated_search(q, limit, raw_sources)
