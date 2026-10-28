@@ -238,7 +238,7 @@ def federated_search(query: str, limit: int = 10, sources: str = "web,news,resea
         "latency_ms": round(max((item["latency_ms"] for item in provider_status), default=0), 2),
         "note": "Providers run concurrently with bounded fan-out. Latency is per-provider wall time; availability, quotas, attribution and reuse terms vary.",
     }
-}
+
 
 def books_search(query: str, limit: int = 10) -> dict[str, Any]:
     """Search public Google Books metadata; quota and terms still apply."""
