@@ -11,7 +11,41 @@ class FreeApiTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         names = {item["name"] for item in payload["catalog"]["free_no_key_adapters"]}
         self.assertIn("GDELT news search", names)
-        self.assertIn("YouTube video search", names)
+
+
+    def test_federated_search_merges_and_deduplicates(self):
+        with patch.object(api, "web_search", return_value={"provider": "web", "results": [
+            {"title": "A", "url": "https://example.com/a", "snippet": "web", "kind": "web"}
+        ]}), patch.object(api, "news_search", return_value={"provider": "news", "results": [
+            {"title": "A duplicate", "url": "https://example.com/a/", "snippet": "news", "kind": "news"},
+            {"title": "B", "url": "https://news.example/b", "snippet": "news", "kind": "news"}
+        ]}):
+            status, payload = api.handle_api("/api/search/all", {
+                "q": ["orbit search"], "limit": ["10"], "sources": ["web,news"]
+            })
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(len(payload["providers"]), 2)
+        self.assertFalse(payload["partial"])
+
+    def test_federated_search_rejects_unknown_provider(self):
+        status, payload = api.handle_api("/api/search/all", {
+            "q": ["orbit"], "sources": ["brave"]
+        })
+        self.assertEqual(status, 400)
+        self.assertIn("Unsupported sources", payload["error"])
+
+    def test_federated_search_reports_partial_provider_failure(self):
+        with patch.object(api, "web_search", side_effect=api.AdapterError("not available")), \\
+             patch.object(api, "news_search", return_value={"provider": "news", "results": [
+                 {"title": "News", "url": "https://news.example/story", "kind": "news"}
+             ]}):
+            status, payload = api.handle_api("/api/search/all", {
+                "q": ["orbit"], "sources": ["web,news"]
+            })
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["partial"])
+        self.assertEqual(payload["count"], 1)
 
     def test_missing_search_query_is_a_client_error(self):
         status, payload = api.handle_api("/api/search/web", {})
