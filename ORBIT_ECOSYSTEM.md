@@ -22,7 +22,7 @@ Check status and discover the full route catalog:
     curl -s http://127.0.0.1:18092/api/orbit/routes
     curl -s http://127.0.0.1:18092/api/orbit/catalog
 
-The route inventory is generated from the code catalog and is the most up-to-date list of expanded routes. The current expansion contains more than 60 additional endpoint families. It adds no new weather routes.
+The route inventory is generated from the code catalog and is the most up-to-date list of expanded routes. The current expansion contains more than 65 additional endpoint families. It adds no new weather routes.
 
 ## Expanded public API families
 
@@ -47,7 +47,8 @@ The route inventory is generated from the code catalog and is the most up-to-dat
 - /api/packages/nuget/search
 
 ### Knowledge, books and archives
-- /api/knowledge/summary, page, random, categories
+- /api/books/openlibrary/search, authors, isbn, author, work, editions, subjects
+- /api/knowledge/summary, page, random, categories, opensearch
 - /api/knowledge/wikidata/search, entity
 - /api/archives/search, metadata, wayback
 - /api/open-data/library-of-congress/search
