@@ -18,6 +18,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from orbit_resilience import fetch_json as _resilient_fetch_json
+
 USER_AGENT = "OrbitSearch/1.0 (open-source educational search; https://github.com/intersprit123/Orbit-Search)"
 MAX_RESPONSE_BYTES = 4_000_000
 
@@ -119,15 +121,9 @@ def _url(base: str, values: dict[str, Any] | list[tuple[str, Any]]) -> str:
 
 def _json(url: str, *, headers: dict[str, str] | None = None, timeout: float = 15,
           max_bytes: int = MAX_RESPONSE_BYTES) -> Any:
-    request_headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
-    if headers:
-        request_headers.update(headers)
-    req = urllib.request.Request(url, headers=request_headers)
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        raw = response.read(max_bytes + 1)
-    if len(raw) > max_bytes:
-        raise ValueError("Provider response exceeded the configured size limit.")
-    return json.loads(raw.decode("utf-8", "replace"))
+    return _resilient_fetch_json(
+        url, headers=headers, timeout=timeout, max_bytes=max_bytes
+    )
 
 
 def _normal_results(provider: str, query: str, results: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
