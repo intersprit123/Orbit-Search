@@ -77,7 +77,7 @@ The expanded API adapters are implemented in orbit_extra_apis.py. The live route
     curl -s http://127.0.0.1:18092/api/orbit/routes
     curl -s http://127.0.0.1:18092/api/orbit/catalog
 
-The inventory currently documents more than 65 additional endpoint families. Use the exact route and required query parameters shown in each catalog entry.
+The inventory currently documents more than 65 additional endpoint families. Use the exact route and required query parameters shown in each catalog entry. Orbit also includes a bounded in-memory TTL cache and privacy-conscious, host-level provider metrics.
 
 ### Scholarly research and health datasets
 - GET /api/scholarly/openalex/works?q=...
@@ -182,6 +182,19 @@ The inventory currently documents more than 65 additional endpoint families. Use
 - GET /api/network/dns?name=example.com&type=A
 - GET /api/network/domain?name=example.com
 - GET /api/network/certificates?domain=example.com
+
+### Local reliability and diagnostics
+
+- `GET /api/orbit/health` — confirms the local hub is responding and reports cache configuration. It does not actively probe upstream providers.
+- `GET /api/orbit/metrics` — shows per-host request counts, cache hits, failures, average network latency, last success/error timestamps, and a coarse status.
+- Public JSON responses use a bounded in-memory cache by default (30 seconds, maximum 512 entries). Cache entries are process-local and disappear on restart.
+- `ORBIT_API_CACHE_TTL=0` disables caching; values from 0 to 300 seconds are accepted. `ORBIT_API_CACHE_MAX_ENTRIES` can be set from 16 to 2048.
+- Metrics never include full request URLs, paths, query strings, or search terms. “Unknown” means Orbit has not contacted that host during the current process lifetime; it is not a failed health check.
+
+Example:
+
+    curl -s http://127.0.0.1:18092/api/orbit/health
+    curl -s http://127.0.0.1:18092/api/orbit/metrics
 
 ### Examples
 
