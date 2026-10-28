@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from orbit_extra_apis import EXTRA_CATALOG, handle_extra_api
+from orbit_resilience import fetch_json as _resilient_fetch_json, metrics_snapshot
 
 USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MAX_QUERY = 300
@@ -26,12 +27,7 @@ class AdapterError(RuntimeError):
 
 
 def _json(url: str, *, timeout: float = 12, headers: dict[str, str] | None = None) -> Any:
-    merged = {"User-Agent": USER_AGENT, "Accept": "application/json"}
-    if headers:
-        merged.update(headers)
-    req = urllib.request.Request(url, headers=merged)
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        return json.loads(response.read(4_000_000).decode("utf-8", "replace"))
+    return _resilient_fetch_json(url, timeout=timeout, headers=headers)
 
 
 def _params(base: str, values: dict[str, Any]) -> str:
@@ -311,6 +307,7 @@ CATALOG = {
         {"name": "Frankfurter currency rates", "route": "/api/currency?from=USD&to=INR&amount=1", "status": "implemented"},
         {"name": "REST Countries", "route": "/api/countries?q=...", "status": "implemented"},
         {"name": "Orbit Market quotes and history", "route": "/api/market/quote?symbol=...&exchange=NSE", "status": "local_service_required"},
+        {"name": "Provider diagnostics", "route": "/api/orbit/health and /api/orbit/metrics", "status": "implemented_passive_metrics"},
     ],
     "buildable_ui_features": [
         "Organic Results", "Answer Box", "Related Searches", "Questions and Answers",
@@ -335,13 +332,27 @@ def handle_api(path: str, params: dict[str, list[str]]) -> tuple[int, dict[str, 
     q = _query(params)
     limit = _limit(params.get("limit", ["10"])[0])
     try:
+        if path == "/api/orbit/health":
+            metrics = metrics_snapshot()
+            return 200, {
+                "ok": True,
+                "service": "Orbit API Hub",
+                "status": "healthy",
+                "version": "1.1",
+                "uptime_seconds": metrics["uptime_seconds"],
+                "cache": metrics["cache"],
+                "provider_metrics_are_passive": True,
+                "note": "This checks the local hub and adapter state only; it does not actively probe every upstream provider.",
+            }
+        if path == "/api/orbit/metrics":
+            return 200, metrics_snapshot()
         if path == "/api/orbit/catalog":
             catalog = dict(CATALOG)
             catalog["additional_public_apis"] = EXTRA_CATALOG
             return 200, {"ok": True, "catalog": catalog}
         if path == "/api/orbit/routes":
             return 200, {"ok": True, "standard_routes": [
-                "/api/orbit/status", "/api/orbit/catalog", "/api/search/all", "/api/search/web",
+                "/api/orbit/status", "/api/orbit/health", "/api/orbit/metrics", "/api/orbit/catalog", "/api/search/all", "/api/search/web",
                 "/api/search/images", "/api/search/suggest", "/api/search/related",
                 "/api/search/news", "/api/search/research", "/api/search/books", "/api/ai/answer",
                 "/api/knowledge", "/api/images/commons", "/api/search/places", "/api/countries",

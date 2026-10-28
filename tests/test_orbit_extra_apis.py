@@ -135,6 +135,21 @@ class ExtraPublicApiTests(unittest.TestCase):
         self.assertIn("additional_public_apis", payload["catalog"])
         self.assertGreaterEqual(len(payload["catalog"]["additional_public_apis"]), 50)
 
+
+    def test_orbit_health_endpoint_is_passive_and_reports_cache(self):
+        status, payload = free.handle_api("/api/orbit/health", {})
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["provider_metrics_are_passive"])
+        self.assertIn("cache", payload)
+
+    def test_orbit_metrics_endpoint_never_exposes_request_urls(self):
+        status, payload = free.handle_api("/api/orbit/metrics", {})
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["ok"])
+        self.assertIn("providers", payload)
+        self.assertTrue(payload["provider_metrics_are_passive"])
+
     def test_routes_endpoint_returns_expanded_catalog(self):
         status, payload = free.handle_api("/api/orbit/routes", {})
         self.assertEqual(status, 200)

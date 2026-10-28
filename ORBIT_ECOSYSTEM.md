@@ -19,10 +19,22 @@ Optional provider package for the original web and image adapters:
 Check status and discover the full route catalog:
 
     curl -s http://127.0.0.1:18092/api/orbit/status
+    curl -s http://127.0.0.1:18092/api/orbit/health
+    curl -s http://127.0.0.1:18092/api/orbit/metrics
     curl -s http://127.0.0.1:18092/api/orbit/routes
     curl -s http://127.0.0.1:18092/api/orbit/catalog
 
 The route inventory is generated from the code catalog and is the most up-to-date list of expanded routes. The current expansion contains more than 65 additional endpoint families. It adds no new weather routes.
+
+## Reliability and diagnostics
+
+Orbit's JSON provider adapters share a bounded in-memory TTL cache (default 30 seconds, 512 entries maximum). This reduces repeated upstream calls and helps avoid unnecessary pressure on public providers. Cache only contains successful responses; provider errors are not cached.
+
+- Set `ORBIT_API_CACHE_TTL=0` to disable cache, or a value up to 300 seconds.
+- Set `ORBIT_API_CACHE_MAX_ENTRIES` to a value from 16 to 2048.
+- `GET /api/orbit/health` reports local process health and cache settings; it does not claim every upstream is online.
+- `GET /api/orbit/metrics` reports host-level request totals, cache hits, failures, average network latency, and last success/error timestamps.
+- Metrics deliberately omit URLs, request paths, query strings, and search terms. Provider status is passive: unknown means no request has been made to that host since process startup.
 
 ## Expanded public API families
 
