@@ -89,6 +89,43 @@ class ExtraPublicApiTests(unittest.TestCase):
         self.assertTrue(payload["partial"])
         self.assertEqual(payload["count"], 1)
 
+
+    def test_openlibrary_search_normalizes_results(self):
+        with patch.object(extra, "_json", return_value={
+            "numFound": 1,
+            "docs": [{
+                "key": "/works/OL45804W", "title": "Example Book",
+                "author_name": ["A. Author"], "first_publish_year": 2020,
+                "isbn": ["9781234567890"], "cover_i": 123, "edition_count": 2,
+                "subject": ["Computers"],
+            }],
+        }):
+            status, payload = extra.handle_extra_api(
+                "/api/books/openlibrary/search", {"q": ["example"], "limit": ["5"]}
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["results"][0]["title"], "Example Book")
+        self.assertIn("covers.openlibrary.org", payload["results"][0]["cover"])
+
+    def test_openlibrary_invalid_isbn_is_rejected_without_network(self):
+        with patch.object(extra, "_json") as fetch:
+            status, payload = extra.handle_extra_api(
+                "/api/books/openlibrary/isbn", {"isbn": ["not-an-isbn"]}
+            )
+        self.assertEqual(status, 400)
+        fetch.assert_not_called()
+
+    def test_wikipedia_opensearch_maps_titles_to_urls(self):
+        with patch.object(extra, "_json", return_value=[
+            "linux", ["Linux", "Linux kernel"], [], ["https://en.wikipedia.org/wiki/Linux", "https://en.wikipedia.org/wiki/Linux_kernel"]
+        ]):
+            status, payload = extra.handle_extra_api(
+                "/api/knowledge/opensearch", {"q": ["linux"], "limit": ["2"]}
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["count"], 2)
+        self.assertTrue(payload["results"][1]["url"].endswith("Linux_kernel"))
+
     def test_unknown_route_does_not_claim_it_is_implemented(self):
         self.assertIsNone(extra.handle_extra_api("/api/made-up/route", {}))
 
