@@ -6,7 +6,7 @@ A self-hosted search project with a local crawler, SQLite/FTS5 index, browser UI
 
 Orbit includes a local API gateway for no-key public data, including federated search, scholarly metadata, developer platforms, package registries, knowledge APIs, archives, science datasets, media catalogues, education, food products, public economic data, DNS and domain registration lookups. Existing weather, currency, places, countries, and market adapters remain available; this expansion does not add weather routes. External video search is intentionally not enabled.
 
-See [ORBIT_ECOSYSTEM.md](ORBIT_ECOSYSTEM.md) for setup, provider caveats, and endpoint details. The existing market service remains separate; see [ORBIT_MARKET.md](ORBIT_MARKET.md).
+See [ORBIT_ECOSYSTEM.md](ORBIT_ECOSYSTEM.md) for setup, provider caveats, and endpoint details. The existing market service remains separate; see [ORBIT_MARKET.md](ORBIT_MARKET.md). See [ORBIT_RANKING.md](ORBIT_RANKING.md) for relevance scoring and structured citations.
 
 Quick start on Kali/Linux:
 
