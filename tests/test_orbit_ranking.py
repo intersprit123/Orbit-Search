@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from orbit_ranking import citation_sources, rank_results
+from orbit_ranking import citation_sources, evaluate_ranking, rank_results
 
 
 class OrbitRankingTests(unittest.TestCase):
@@ -36,6 +36,22 @@ class OrbitRankingTests(unittest.TestCase):
     def test_invalid_dates_do_not_crash(self):
         ranked = rank_results("space", [{"title": "space science", "published": "not-a-date"}])
         self.assertEqual(len(ranked), 1)
+
+    def test_offline_benchmark_reports_mrr_and_ndcg(self):
+        rows = [
+            {"url": "https://example.org/good"},
+            {"url": "https://example.org/bad"},
+            {"url": "https://example.org/also-good"},
+        ]
+        metrics = evaluate_ranking(rows, {
+            "https://example.org/good": 3,
+            "https://example.org/bad": 0,
+            "https://example.org/also-good": 1,
+        }, k=3)
+        self.assertEqual(metrics["mrr"], 1.0)
+        self.assertGreater(metrics["ndcg_at_k"], 0.9)
+        self.assertEqual(metrics["evaluated_results"], 3)
+        self.assertEqual(metrics["relevant_results"], 2)
 
     def test_citations_are_valid_deduplicated_and_numbered(self):
         rows = [
