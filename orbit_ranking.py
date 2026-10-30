@@ -55,7 +55,8 @@ def rank_results(
     """
     query_tokens = _tokens(query)
     if not query_tokens:
-        return [dict(row) for row in list(results)[:limit] if isinstance(row, dict)]
+        output = [dict(row) for row in results if isinstance(row, dict)]
+        return output if limit is None else output[:max(0, int(limit))]
     unique_query = set(query_tokens)
     reference_now = now or datetime.now(timezone.utc)
     if reference_now.tzinfo is None:
@@ -110,6 +111,8 @@ def rank_results(
 def citation_sources(results: Iterable[dict[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
     """Normalize result metadata into stable numbered citation records."""
     citations = []
+    if int(limit) <= 0:
+        return citations
     seen: set[str] = set()
     for row in results:
         if not isinstance(row, dict):
