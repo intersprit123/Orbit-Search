@@ -31,4 +31,4 @@ Run the no-network suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests cover ranking order, stable ties, freshness behavior, invalid dates, citation deduplication, and integration into federated results. Provider live availability and search-quality improvements still require real-world measurement.
+The tests cover ranking order, stable ties, freshness behavior, invalid dates, citation deduplication, and integration into federated results. The `evaluate_ranking` helper computes MRR and NDCG@k against hand-labelled URL relevance grades, making it possible to compare ranking changes on a fixed offline query set. Provider live availability and search-quality improvements still require real-world measurement.
