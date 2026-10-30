@@ -19,6 +19,7 @@ from typing import Any
 
 from orbit_extra_apis import EXTRA_CATALOG, handle_extra_api
 from orbit_resilience import fetch_json as _resilient_fetch_json, metrics_snapshot
+from orbit_ranking import citation_sources, rank_results
 
 USER_AGENT = "OrbitSearch/0.3 (educational project; https://github.com/intersprit123/Orbit-Search)"
 MAX_QUERY = 300
@@ -224,8 +225,9 @@ def federated_search(query: str, limit: int = 10, sources: str = "web,news,resea
     if provider_status and not any(item["ok"] for item in provider_status):
         failures = ", ".join(item["name"] + ":" + item["error"] for item in provider_status)
         raise AdapterError("All selected search providers failed (" + failures + ").")
-    # Do not alphabetize titles: upstream order usually represents relevance.
-    # Results retain source order and each provider's native ranking.
+    # Rerank across providers using explainable lexical relevance and a small freshness bonus.
+    # Stable tie-breaking preserves original provider/source order.
+    combined = rank_results(query, combined)
     result_limit = _limit(limit, maximum=20)
     return {
         "ok": True,
@@ -321,10 +323,12 @@ def ai_answer(question: str, sources: list[dict[str, Any]]) -> dict[str, Any]:
             f"[{i}] {row.get('title', 'Untitled')}: {str(row.get('snippet', ''))[:450]} — {row.get('url', '')}"
             for i, row in enumerate(sources[:8], 1))
         mode = "extractive_fallback"
+    citations = citation_sources(sources, limit=10)
     return {"ok": True, "question": question, "answer": answer, "mode": mode,
             "sources": [{"index": i, "title": row.get("title", ""),
                          "url": row.get("url", ""), "source": row.get("source", "")}
-                        for i, row in enumerate(sources[:10], 1)]}
+                        for i, row in enumerate(sources[:10], 1)],
+            "citations": citations}
 
 
 # Status registry deliberately distinguishes real adapters from UI features and

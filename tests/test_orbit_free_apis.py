@@ -43,6 +43,7 @@ class FreeApiTests(unittest.TestCase):
         )
         self.assertGreaterEqual(payload["latency_ms"], 0)
         self.assertTrue(all("latency_ms" in provider for provider in payload["providers"]))
+        self.assertTrue(all("relevance_score" in row for row in payload["results"]))
 
     def test_federated_search_rejects_unknown_provider(self):
         status, payload = api.handle_api("/api/search/all", {
@@ -79,6 +80,15 @@ class FreeApiTests(unittest.TestCase):
             payload = api.suggestions("cat", 5)
         self.assertEqual(payload["provider"], "Wikipedia OpenSearch")
         self.assertEqual(payload["suggestions"], ["cat", "cats"])
+
+    def test_ai_answer_includes_numbered_structured_citations(self):
+        payload = api.ai_answer("What is it?", [
+            {"title": "Example", "url": "https://example.org", "snippet": "Evidence", "source": "Test"},
+            {"title": "Duplicate", "url": "https://example.org", "snippet": "Duplicate evidence"},
+        ])
+        self.assertEqual(len(payload["citations"]), 1)
+        self.assertEqual(payload["citations"][0]["index"], 1)
+        self.assertEqual(payload["citations"][0]["url"], "https://example.org")
 
     def test_ai_answer_route_requires_sources_array(self):
         status, payload = api.handle_api("/api/ai/answer", {
