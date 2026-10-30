@@ -108,6 +108,44 @@ def rank_results(
     return output if limit is None else output[:max(0, int(limit))]
 
 
+def evaluate_ranking(
+    ranked_results: Iterable[dict[str, Any]],
+    relevance_by_url: dict[str, int],
+    *,
+    k: int = 10,
+) -> dict[str, float | int]:
+    """Evaluate a ranked list against hand-labelled URL relevance grades.
+
+    Returns MRR, NDCG@k, relevant-result count, and evaluated-result count.
+    Relevance grades are non-negative integers; grade 0 means not relevant.
+    This is an offline benchmark helper and does not make live-provider claims.
+    """
+    rows = [row for row in ranked_results if isinstance(row, dict)][:max(0, int(k))]
+    grades = [
+        max(0, int(relevance_by_url.get(str(row.get("url") or ""), 0)))
+        for row in rows
+    ]
+    reciprocal_rank = 0.0
+    for index, grade in enumerate(grades, start=1):
+        if grade > 0:
+            reciprocal_rank = 1.0 / index
+            break
+
+    def dcg(values: list[int]) -> float:
+        return sum((2 ** grade - 1) / math.log2(index + 2)
+                   for index, grade in enumerate(values))
+
+    ideal_grades = sorted((max(0, int(grade)) for grade in relevance_by_url.values()), reverse=True)[:len(rows)]
+    ideal_dcg = dcg(ideal_grades)
+    ndcg = dcg(grades) / ideal_dcg if ideal_dcg else 0.0
+    return {
+        "mrr": round(reciprocal_rank, 6),
+        "ndcg_at_k": round(ndcg, 6),
+        "relevant_results": sum(grade > 0 for grade in grades),
+        "evaluated_results": len(rows),
+    }
+
+
 def citation_sources(results: Iterable[dict[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
     """Normalize result metadata into stable numbered citation records."""
     citations = []
